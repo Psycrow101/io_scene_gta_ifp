@@ -1,7 +1,7 @@
 import bpy
 
 from mathutils import Vector, Quaternion
-from . ifp import Ifp, Bone, Keyframe, ANIM_CLASSES
+from . ifp import Ifp, Anp3Bone, Keyframe, ANIM_CLASSES
 
 
 def invalid_active_object(self, context):
@@ -26,7 +26,7 @@ def get_pose_data(arm_obj, act):
             continue
 
         if bone not in pose_data:
-            pose_data[bone] = {'kfs': {}, 'type': 3}
+            pose_data[bone] = {'kfs': {}, 'type': 'KR00'}
 
         for kp in curve.keyframe_points:
             time = int(kp.co[0])
@@ -35,14 +35,15 @@ def get_pose_data(arm_obj, act):
 
             if curve.data_path == 'pose.bones["%s"].location' % bone_name:
                 pose_data[bone]['kfs'][time][0][curve.array_index] = kp.co[1]
-                pose_data[bone]['type'] = 4
+                pose_data[bone]['type'] = 'KRT0'
             elif curve.data_path == 'pose.bones["%s"].rotation_quaternion' % bone_name:
                 pose_data[bone]['kfs'][time][1][curve.array_index] = kp.co[1]
 
     return pose_data
 
 
-def create_ifp_animations(arm_obj, anim_cls, actions):
+def create_ifp_animations(arm_obj, ifp_cls, actions):
+    anim_cls = ifp_cls.get_animation_class()
     animations = []
 
     for act in actions:
@@ -59,10 +60,14 @@ def create_ifp_animations(arm_obj, anim_cls, actions):
                 if bone.parent:
                     loc_mat = bone.parent.matrix_local.inverted_safe() @ loc_mat
 
-                kf = Keyframe(time, loc + loc_mat.to_translation(), (loc_mat @ rot.to_matrix().to_4x4()).to_quaternion())
+                kf_pos = loc + loc_mat.to_translation()
+                kf_rot = (loc_mat @ rot.to_matrix().to_4x4()).to_quaternion()
+                kf_scl = Vector((1, 1, 1))
+
+                kf = Keyframe(time, kf_pos, kf_rot, kf_scl)
                 keyframes.append(kf)
 
-            anim.bones.append(Bone(bone.name, data['type'], bone['bone_id'], keyframes))
+            anim.bones.append(Anp3Bone(bone.name, data['type'], bone['bone_id'], keyframes))
 
         animations.append(anim)
     return animations
@@ -74,9 +79,12 @@ def save(context, filepath, name, version):
         context.window_manager.popup_menu(invalid_active_object, title='Error', icon='ERROR')
         return {'CANCELLED'}
 
-    animations = create_ifp_animations(arm_obj, ANIM_CLASSES[version], bpy.data.actions)
+    ifp_cls = ANIM_CLASSES[version]
+    animations = create_ifp_animations(arm_obj, ifp_cls, bpy.data.actions)
 
-    ifp = Ifp(name, version, animations)
+    data = ifp_cls(name, animations)
+
+    ifp = Ifp(version, data)
     ifp.save(filepath)
 
     return {'FINISHED'}

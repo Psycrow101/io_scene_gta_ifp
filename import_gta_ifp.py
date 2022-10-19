@@ -1,5 +1,6 @@
 import bpy
 
+from mathutils import Vector
 from . ifp import Ifp
 
 POSEDATA_PREFIX = 'pose.bones["%s"].'
@@ -22,7 +23,7 @@ def find_bone_by_id(arm_obj, bone_id):
             return bone
 
 
-def create_action(arm_obj, anim):
+def create_action(arm_obj, anim, fps):
     act = bpy.data.actions.new(anim.name)
 
     for b in anim.bones:
@@ -37,9 +38,14 @@ def create_action(arm_obj, anim):
         for c in cr:
             c.group = g
 
-        if b.keyframe_type == 4:
+        if b.keyframe_type[2] == 'T':
             cl = [act.fcurves.new(data_path=(POSEDATA_PREFIX % bone.name) + 'location', index=i) for i in range(3)]
             for c in cl:
+                c.group = g
+
+        if b.keyframe_type[3] == 'S':
+            cs = [act.fcurves.new(data_path=(POSEDATA_PREFIX % bone.name) + 'scale', index=i) for i in range(3)]
+            for c in cs:
                 c.group = g
 
         pose_bone.rotation_mode = 'QUATERNION'
@@ -51,10 +57,17 @@ def create_action(arm_obj, anim):
             loc_mat = bone.matrix_local.copy()
             if bone.parent:
                 loc_mat = bone.parent.matrix_local.inverted_safe() @ loc_mat
+            time = kf.time * fps
 
-            if b.keyframe_type == 4:
-                set_keyframe(cl, kf.time, kf.pos - loc_mat.to_translation())
-            set_keyframe(cr, kf.time, loc_mat.to_quaternion().rotation_difference(kf.rot))
+            if b.keyframe_type[2] == 'T':
+                set_keyframe(cl, time, kf.pos - loc_mat.to_translation())
+            if b.keyframe_type[3] == 'S':
+                set_keyframe(cl, time, Vector((1, 1, 1)) + kf.scl - loc_mat.to_scale())
+
+            rot = loc_mat.to_quaternion().rotation_difference(kf.rot)
+            if rot.w < 0:
+                rot.negate()
+            set_keyframe(cr, time, rot)
 
     return act
 
@@ -66,16 +79,21 @@ def load(context, filepath):
         return {'CANCELLED'}
 
     ifp = Ifp.load(filepath)
-    if not ifp.animations:
+    if not ifp.data:
         return {'CANCELLED'}
 
     animation_data = arm_obj.animation_data
     if not animation_data:
         animation_data = arm_obj.animation_data_create()
 
+    if ifp.version == 'ANP3':
+        fps = 1.0
+    else:
+        fps = 30.0
+
     context.scene.frame_start = 0
-    for anim in ifp.animations:
-        act = create_action(arm_obj, anim)
+    for anim in ifp.data.animations:
+        act = create_action(arm_obj, anim, fps)
         act.name = anim.name
         animation_data.action = act
 
