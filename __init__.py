@@ -28,6 +28,30 @@ if "bpy" in locals():
         importlib.reload(export_gta_ifp)
 
 
+class MissingBonesAlert(bpy.types.Operator):
+    bl_idname = "message.missing_bones"
+    bl_label = "Missing bones"
+
+    message: StringProperty(
+        name = "message",
+        description = "message",
+        default = ''
+    )
+
+    def execute(self, context):
+        self.report({'WARNING'}, 'Missing bones:\n' + self.message)
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self, width=240)
+
+    def draw(self, context):
+        layout = self.layout
+        for text in self.message.split('\n'):
+            if text:
+                layout.label(text=text, icon='BONE_DATA')
+
+
 class ImportGtaIfp(bpy.types.Operator, ImportHelper):
     bl_idname = "import_scene.gta_ifp"
     bl_label = "Import GTA Animation"
@@ -72,6 +96,7 @@ def menu_func_export(self, context):
 classes = (
     ImportGtaIfp,
     ExportGtaIfp,
+    MissingBonesAlert,
 )
 
 

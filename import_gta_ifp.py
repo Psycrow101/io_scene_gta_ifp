@@ -25,11 +25,16 @@ def find_bone_by_id(arm_obj, bone_id):
 
 def create_action(arm_obj, anim, fps):
     act = bpy.data.actions.new(anim.name)
+    missing_bones = set()
 
     for b in anim.bones:
         bone = find_bone_by_id(arm_obj, b.bone_id)
         if not bone:
-            continue
+            bone = arm_obj.data.bones.get(b.name)
+            if not bone:
+                missing_bones.add(b.name)
+                continue
+
         pose_bone = arm_obj.pose.bones[bone.name]
 
         g = act.groups.new(name=bone.name)
@@ -69,7 +74,7 @@ def create_action(arm_obj, anim, fps):
                 rot.negate()
             set_keyframe(cr, time, rot)
 
-    return act
+    return act, missing_bones
 
 
 def load(context, filepath):
@@ -91,10 +96,15 @@ def load(context, filepath):
     else:
         fps = 30.0
 
-    context.scene.frame_start = 0
+    missing_bones = set()
     for anim in ifp.data.animations:
-        act = create_action(arm_obj, anim, fps)
+        act, mb = create_action(arm_obj, anim, fps)
         act.name = anim.name
         animation_data.action = act
+        missing_bones = missing_bones.union(mb)
+
+    if missing_bones:
+        bpy.ops.message.missing_bones('INVOKE_DEFAULT', message='\n'.join(missing_bones))
+
 
     return {'FINISHED'}
