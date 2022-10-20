@@ -65,12 +65,20 @@ class Keyframe:
 
 
 @dataclass
-class Anp3Bone:
+class Bone:
     name: str
     keyframe_type: str
     bone_id: int
     keyframes: []
 
+
+@dataclass
+class Animation:
+    name: str
+    bones: []
+
+
+class Anp3Bone(Bone):
     def get_keyframes_size(self):
         s = 16 if self.keyframe_type[2] == 'T' else 10
         return len(self.keyframes) * s
@@ -118,11 +126,7 @@ class Anp3Bone:
                 write_uint16(fd, (px, py, pz))
 
 
-@dataclass
-class Anp3Animation:
-    name: str
-    bones: []
-
+class Anp3Animation(Animation):
     def get_size(self):
         return 36 + sum(b.get_size() for b in self.bones)
 
@@ -169,13 +173,7 @@ class Anp3:
         fd.write(b'\x00' * (2048 - (fd.tell() % 2048)))
 
 
-@dataclass
-class AnpkBone:
-    name: str
-    keyframe_type: str
-    bone_id: int
-    keyframes: []
-
+class AnpkBone(Bone):
     @classmethod
     def read(cls, fd):
         fd.seek(4, SEEK_CUR) # CPAN
@@ -200,10 +198,13 @@ class AnpkBone:
             sx, sy, sz = read_float32(fd, 3) if keyframe_type[3] == 'S' else (1, 1, 1)
             time = read_float32(fd)
 
+            rot = Quaternion((qw, qx, qy, qz))
+            rot.conjugate()
+
             kf = Keyframe(
                 time,
                 Vector((px, py, pz)),
-                Quaternion((qw, qx, qy, qz)),
+                rot,
                 Vector((sx, sy, sz)),
             )
             keyframes.append(kf)
@@ -211,11 +212,7 @@ class AnpkBone:
         return cls(name, keyframe_type, bone_id, keyframes)
 
 
-@dataclass
-class AnpkAnimation:
-    name: str
-    bones: []
-
+class AnpkAnimation(Animation):
     @classmethod
     def read(cls, fd):
         fd.seek(4, SEEK_CUR) # NAME

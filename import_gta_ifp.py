@@ -77,7 +77,7 @@ def create_action(arm_obj, anim, fps):
     return act, missing_bones
 
 
-def load(context, filepath):
+def load(context, filepath, *, fps):
     arm_obj = context.view_layer.objects.active
     if not arm_obj or type(arm_obj.data) != bpy.types.Armature:
         context.window_manager.popup_menu(invalid_active_object, title='Error', icon='ERROR')
@@ -93,8 +93,6 @@ def load(context, filepath):
 
     if ifp.version == 'ANP3':
         fps = 1.0
-    else:
-        fps = 30.0
 
     missing_bones = set()
     for anim in ifp.data.animations:

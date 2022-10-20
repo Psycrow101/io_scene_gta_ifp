@@ -1,5 +1,6 @@
 import bpy
 from bpy.props import (
+        FloatProperty,
         StringProperty,
         )
 from bpy_extras.io_utils import (
@@ -59,6 +60,12 @@ class ImportGtaIfp(bpy.types.Operator, ImportHelper):
 
     filter_glob: StringProperty(default="*.ifp", options={'HIDDEN'})
     filename_ext = ".ifp"
+
+    fps: FloatProperty(
+        name="FPS",
+        description="Value by which the keyframe time is multiplied (GTA 3/VC)",
+        default=30.0,
+    )
 
     def execute(self, context):
         from . import import_gta_ifp
