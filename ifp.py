@@ -47,7 +47,7 @@ def write_uint32(fd, vals, en='<'):
     write_val(fd, vals, 'I', en)
 
 
-def write_float16(fd, vals, en='<'):
+def write_float32(fd, vals, en='<'):
     write_val(fd, vals, 'f', en)
 
 
@@ -68,7 +68,10 @@ class Keyframe:
 class Bone:
     name: str
     keyframe_type: str
+    use_bone_id: bool
     bone_id: int
+    sibling_x: int
+    sibling_y: int
     keyframes: []
 
 
@@ -76,6 +79,12 @@ class Bone:
 class Animation:
     name: str
     bones: []
+
+
+@dataclass
+class IfpData:
+    name: str
+    animations: []
 
 
 class Anp3Bone(Bone):
@@ -104,7 +113,7 @@ class Anp3Bone(Bone):
             )
             keyframes.append(kf)
 
-        return cls(name, keyframe_type, bone_id, keyframes)
+        return cls(name, keyframe_type, True, bone_id, 0, 0, keyframes)
 
     def write(self, fd):
         keyframe_type = 4 if self.keyframe_type == 'KRT0' else 3
@@ -117,7 +126,7 @@ class Anp3Bone(Bone):
             qy = int(kf.rot.y*4096.0)
             qz = int(kf.rot.z*4096.0)
             qw = int(kf.rot.w*4096.0)
-            write_uint16(fd, (qx, qy, qz, qw, kf.time))
+            write_uint16(fd, (qx, qy, qz, qw, int(kf.time)))
 
             if keyframe_type == 4:
                 px = int(kf.pos.x*1024.0)
@@ -127,6 +136,10 @@ class Anp3Bone(Bone):
 
 
 class Anp3Animation(Animation):
+    @staticmethod
+    def get_bone_class():
+        return Anp3Bone
+
     def get_size(self):
         return 36 + sum(b.get_size() for b in self.bones)
 
@@ -146,11 +159,7 @@ class Anp3Animation(Animation):
             b.write(fd)
 
 
-@dataclass
-class Anp3:
-    name: str
-    animations: []
-
+class Anp3(IfpData):
     @staticmethod
     def get_animation_class():
         return Anp3Animation
@@ -170,10 +179,24 @@ class Anp3:
         write_uint32(fd, len(self.animations))
         for a in self.animations:
             a.write(fd)
-        fd.write(b'\x00' * (2048 - (fd.tell() % 2048)))
 
 
 class AnpkBone(Bone):
+    def get_keyframes_size(self):
+        s = 20
+        if self.keyframe_type[2] == 'T':
+            s += 12
+        if self.keyframe_type[3] == 'S':
+            s += 12
+        return len(self.keyframes) * s
+
+    def get_size(self):
+        if self.use_bone_id:
+            anim_len = 44
+        else:
+            anim_len = 48
+        return self.get_keyframes_size() + anim_len + 24
+
     @classmethod
     def read(cls, fd):
         fd.seek(4, SEEK_CUR) # CPAN
@@ -182,11 +205,16 @@ class AnpkBone(Bone):
         anim_len = read_uint32(fd)
         name = read_str(fd, 28)
         keyframes_num = read_uint32(fd)
+        fd.seek(8, SEEK_CUR) # unk
 
         if anim_len == 44:
-            bone_id = read_uint32(fd, 3)[-1]
+            bone_id = read_uint32(fd)
+            sibling_x, sibling_y = 0, 0
+            use_bone_id = True
         else:
-            bone_id = read_uint32(fd, 4)[-1]
+            bone_id = 0
+            sibling_x, sibling_y = read_uint32(fd, 2)
+            use_bone_id = False
 
         keyframe_type = read_str(fd, 4)
         keyframes_len = read_uint32(fd)
@@ -209,16 +237,63 @@ class AnpkBone(Bone):
             )
             keyframes.append(kf)
 
-        return cls(name, keyframe_type, bone_id, keyframes)
+        return cls(name, keyframe_type, use_bone_id, bone_id, sibling_x, sibling_y, keyframes)
+
+    def write(self, fd):
+        keyframes_num = len(self.keyframes)
+        if self.use_bone_id:
+            anim_len = 44
+        else:
+            anim_len = 48
+
+        keyframes_len = self.get_keyframes_size()
+        bone_len = keyframes_len + anim_len + 16
+
+        write_str(fd, 'CPAN', 4)
+        write_uint32(fd, bone_len)
+        write_str(fd, 'ANIM', 4)
+        write_uint32(fd, anim_len)
+        write_str(fd, self.name, 28)
+        write_uint32(fd, (keyframes_num, 0, keyframes_num - 1))
+
+        if self.use_bone_id:
+            write_uint32(fd, self.bone_id)
+        else:
+            write_uint32(fd, (self.sibling_x, self.sibling_y))
+
+        write_str(fd, self.keyframe_type, 4)
+        write_uint32(fd, keyframes_len)
+
+        for kf in self.keyframes:
+            rot = kf.rot.copy()
+            rot.conjugate()
+            write_float32(fd, (rot.x, rot.y, rot.z, rot.w))
+
+            if self.keyframe_type[2] == 'T':
+                write_float32(fd, kf.pos)
+
+            if self.keyframe_type[3] == 'S':
+                write_float32(fd, kf.scl)
+
+            write_float32(fd, kf.time)
 
 
 class AnpkAnimation(Animation):
+    def get_bone_class():
+        return AnpkBone
+
+
+    def get_size(self):
+        name_len = len(self.name) + 1
+        name_align_len = 4 - name_len % 4
+        return 32 + name_len + name_align_len + sum(b.get_size() for b in self.bones)
+
     @classmethod
     def read(cls, fd):
         fd.seek(4, SEEK_CUR) # NAME
         name_len = read_uint32(fd)
         name = read_str(fd, name_len)
-        fd.seek(4 - (len(name) + 1) % 4, SEEK_CUR)
+        fd.seek(4 - name_len % 4, SEEK_CUR)
         fd.seek(4, SEEK_CUR) # DGAN
         animation_size = read_uint32(fd)
         fd.seek(4, SEEK_CUR) # INFO
@@ -227,12 +302,22 @@ class AnpkAnimation(Animation):
         bones = [AnpkBone.read(fd) for _ in range(bones_num)]
         return cls(name, bones)
 
+    def write(self, fd):
+        name_len = len(self.name) + 1
+        animation_size = 16 + sum(b.get_size() for b in self.bones)
 
-@dataclass
-class Anpk:
-    name: str
-    animations: []
+        write_str(fd, 'NAME', 4)
+        write_uint32(fd, name_len)
+        write_str(fd, self.name, name_len + (4 - name_len % 4))
+        write_str(fd, 'DGAN', 4)
+        write_uint32(fd, animation_size)
+        write_str(fd, 'INFO', 4)
+        write_uint32(fd, (8, len(self.bones), 0))
+        for b in self.bones:
+            b.write(fd)
 
+
+class Anpk(IfpData):
     @staticmethod
     def get_animation_class():
         return AnpkAnimation
@@ -243,10 +328,23 @@ class Anpk:
         fd.seek(4, SEEK_CUR) # INFO
         info_len, animations_num = read_uint32(fd, 2)
         name = read_str(fd, info_len - 4)
-        fd.seek(4 - (len(name) + 1) % 4, SEEK_CUR)
+        fd.seek(4 - (info_len) % 4, SEEK_CUR)
 
         animations = [cls.get_animation_class().read(fd) for _ in range(animations_num)]
         return cls(name, animations)
+
+    def write(self, fd):
+        name_len = len(self.name) + 1
+        info_len = name_len + 4
+        name_align_len = 4 - name_len % 4
+        size = 12 + name_len + name_align_len + sum(a.get_size() for a in self.animations)
+
+        write_uint32(fd, size)
+        write_str(fd, 'INFO', 4)
+        write_uint32(fd, (info_len, len(self.animations)))
+        write_str(fd, self.name, name_len + name_align_len)
+        for a in self.animations:
+            a.write(fd)
 
 
 ANIM_CLASSES = {
@@ -274,6 +372,7 @@ class Ifp:
     def write(self, fd):
         write_str(fd, self.version, 4)
         self.data.write(fd)
+        fd.write(b'\x00' * (2048 - (fd.tell() % 2048)))
 
     @classmethod
     def load(cls, filepath):

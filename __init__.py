@@ -1,5 +1,7 @@
 import bpy
 from bpy.props import (
+        BoolProperty,
+        EnumProperty,
         FloatProperty,
         StringProperty,
         )
@@ -34,9 +36,9 @@ class MissingBonesAlert(bpy.types.Operator):
     bl_label = "Missing bones"
 
     message: StringProperty(
-        name = "message",
-        description = "message",
-        default = ''
+        name="message",
+        description="message",
+        default='',
     )
 
     def execute(self, context):
@@ -84,10 +86,38 @@ class ExportGtaIfp(bpy.types.Operator, ExportHelper):
     filter_glob: StringProperty(default="*.ifp", options={'HIDDEN'})
     filename_ext = ".ifp"
 
+    ifp_version: EnumProperty(
+        name='Version',
+        description='IFP version',
+        items={
+            ('ANP3', 'GTA SA', 'IFP version for GTA San Andreas'),
+            ('ANPK', 'GTA 3/VC', 'IFP version for GTA 3 and GTA Vice City')},
+        default='ANP3',
+    )
+
+    ifp_name: StringProperty(
+        name="Name",
+        description="IFP name",
+        default='Model',
+        maxlen=23,
+    )
+
+    fps: FloatProperty(
+        name="FPS",
+        description="Value by which the keyframe time is divided (GTA 3/VC)",
+        default=30.0,
+    )
+
+    use_bone_id: BoolProperty(
+        name="Use BoneID",
+        description="Use BoneID instead of siblings to identify bones (GTA 3/VC)",
+        default=True,
+    )
+
     def execute(self, context):
         from . import export_gta_ifp
 
-        return export_gta_ifp.save(context, self.filepath, 'RYDER', 'ANP3')
+        return export_gta_ifp.save(context, self.filepath, self.ifp_name, self.ifp_version, self.fps, self.use_bone_id)
 
 
 def menu_func_import(self, context):
