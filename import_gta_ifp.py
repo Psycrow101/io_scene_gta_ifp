@@ -70,8 +70,6 @@ def create_action(arm_obj, anim, fps):
                 set_keyframe(cl, time, Vector((1, 1, 1)) + kf.scl - loc_mat.to_scale())
 
             rot = loc_mat.to_quaternion().rotation_difference(kf.rot)
-            if rot.w < 0:
-                rot.negate()
             set_keyframe(cr, time, rot)
 
     return act, missing_bones

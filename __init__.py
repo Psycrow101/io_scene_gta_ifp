@@ -1,14 +1,14 @@
 import bpy
 from bpy.props import (
-        BoolProperty,
-        EnumProperty,
-        FloatProperty,
-        StringProperty,
-        )
+    BoolProperty,
+    EnumProperty,
+    FloatProperty,
+    StringProperty,
+)
 from bpy_extras.io_utils import (
-        ImportHelper,
-        ExportHelper,
-        )
+    ImportHelper,
+    ExportHelper,
+)
 
 bl_info = {
     "name": "GTA Animation",

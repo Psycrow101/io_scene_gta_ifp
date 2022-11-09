@@ -57,17 +57,16 @@ def create_ifp_animations(arm_obj, ifp_cls, actions, fps, use_bone_id):
 
         pose_mats = get_pose_data(arm_obj, act)
         for bone, data in pose_mats.items():
+            loc_mat = bone.matrix_local.copy()
+            if bone.parent:
+                loc_mat = bone.parent.matrix_local.inverted_safe() @ loc_mat
 
             keyframes = []
             for time, tr in data['kfs'].items():
                 loc, rot, scale = tr
 
-                loc_mat = bone.matrix_local.copy()
-                if bone.parent:
-                    loc_mat = bone.parent.matrix_local.inverted_safe() @ loc_mat
-
                 kf_pos = loc + loc_mat.to_translation()
-                kf_rot = (loc_mat @ rot.to_matrix().to_4x4()).to_quaternion()
+                kf_rot = loc_mat.inverted_safe().to_quaternion().rotation_difference(rot)
                 kf_scl = scale + loc_mat.to_scale() - Vector((1, 1, 1))
 
                 kf = Keyframe(time / fps, kf_pos, kf_rot, kf_scl)
