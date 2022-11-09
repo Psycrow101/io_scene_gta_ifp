@@ -1,6 +1,6 @@
 import bpy
 
-from mathutils import Vector
+from mathutils import Matrix, Vector
 from . ifp import Ifp
 
 POSEDATA_PREFIX = 'pose.bones["%s"].'
@@ -31,37 +31,39 @@ def create_action(arm_obj, anim, fps):
         bone = find_bone_by_id(arm_obj, b.bone_id)
         if not bone:
             bone = arm_obj.data.bones.get(b.name)
-            if not bone:
-                missing_bones.add(b.name)
-                continue
 
-        pose_bone = arm_obj.pose.bones[bone.name]
+        if bone:
+            g = act.groups.new(name=b.name)
+            bone_name = bone.name
+            pose_bone = arm_obj.pose.bones[bone_name]
+            pose_bone.rotation_mode = 'QUATERNION'
+            pose_bone.location = (0, 0, 0)
+            pose_bone.rotation_quaternion = (1, 0, 0, 0)
+            pose_bone.scale = (1, 1, 1)
+            loc_mat = bone.matrix_local.copy()
+            if bone.parent:
+                loc_mat = bone.parent.matrix_local.inverted_safe() @ loc_mat
+        else:
+            g = act.groups.new(name='%s %d' % (b.name, b.bone_id))
+            bone_name = b.name
+            loc_mat = Matrix.Identity(4)
+            missing_bones.add(bone_name)
 
-        g = act.groups.new(name=bone.name)
-
-        cr = [act.fcurves.new(data_path=(POSEDATA_PREFIX % bone.name) + 'rotation_quaternion', index=i) for i in range(4)]
+        cr = [act.fcurves.new(data_path=(POSEDATA_PREFIX % bone_name) + 'rotation_quaternion', index=i) for i in range(4)]
         for c in cr:
             c.group = g
 
         if b.keyframe_type[2] == 'T':
-            cl = [act.fcurves.new(data_path=(POSEDATA_PREFIX % bone.name) + 'location', index=i) for i in range(3)]
+            cl = [act.fcurves.new(data_path=(POSEDATA_PREFIX % bone_name) + 'location', index=i) for i in range(3)]
             for c in cl:
                 c.group = g
 
         if b.keyframe_type[3] == 'S':
-            cs = [act.fcurves.new(data_path=(POSEDATA_PREFIX % bone.name) + 'scale', index=i) for i in range(3)]
+            cs = [act.fcurves.new(data_path=(POSEDATA_PREFIX % bone_name) + 'scale', index=i) for i in range(3)]
             for c in cs:
                 c.group = g
 
-        pose_bone.rotation_mode = 'QUATERNION'
-        pose_bone.location = (0, 0, 0)
-        pose_bone.rotation_quaternion = (1, 0, 0, 0)
-        pose_bone.scale = (1, 1, 1)
-
         for kf in b.keyframes:
-            loc_mat = bone.matrix_local.copy()
-            if bone.parent:
-                loc_mat = bone.parent.matrix_local.inverted_safe() @ loc_mat
             time = kf.time * fps
 
             if b.keyframe_type[2] == 'T':
