@@ -282,10 +282,9 @@ class AnpkAnimation(Animation):
     def get_bone_class():
         return AnpkBone
 
-
     def get_size(self):
         name_len = len(self.name) + 1
-        name_align_len = 4 - name_len % 4
+        name_align_len = (4 - name_len % 4) % 4
         return 32 + name_len + name_align_len + sum(b.get_size() for b in self.bones)
 
     @classmethod
@@ -293,7 +292,7 @@ class AnpkAnimation(Animation):
         fd.seek(4, SEEK_CUR) # NAME
         name_len = read_uint32(fd)
         name = read_str(fd, name_len)
-        fd.seek(4 - name_len % 4, SEEK_CUR)
+        fd.seek((4 - name_len % 4) % 4, SEEK_CUR)
         fd.seek(4, SEEK_CUR) # DGAN
         animation_size = read_uint32(fd)
         fd.seek(4, SEEK_CUR) # INFO
@@ -308,7 +307,7 @@ class AnpkAnimation(Animation):
 
         write_str(fd, 'NAME', 4)
         write_uint32(fd, name_len)
-        write_str(fd, self.name, name_len + (4 - name_len % 4))
+        write_str(fd, self.name, name_len + (4 - name_len % 4) % 4)
         write_str(fd, 'DGAN', 4)
         write_uint32(fd, animation_size)
         write_str(fd, 'INFO', 4)
@@ -328,7 +327,7 @@ class Anpk(IfpData):
         fd.seek(4, SEEK_CUR) # INFO
         info_len, animations_num = read_uint32(fd, 2)
         name = read_str(fd, info_len - 4)
-        fd.seek(4 - (info_len) % 4, SEEK_CUR)
+        fd.seek((4 - info_len % 4) % 4, SEEK_CUR)
 
         animations = [cls.get_animation_class().read(fd) for _ in range(animations_num)]
         return cls(name, animations)
@@ -336,7 +335,7 @@ class Anpk(IfpData):
     def write(self, fd):
         name_len = len(self.name) + 1
         info_len = name_len + 4
-        name_align_len = 4 - name_len % 4
+        name_align_len = (4 - name_len % 4) % 4
         size = 12 + name_len + name_align_len + sum(a.get_size() for a in self.animations)
 
         write_uint32(fd, size)
