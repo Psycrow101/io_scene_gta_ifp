@@ -23,7 +23,7 @@ def find_bone_by_id(arm_obj, bone_id):
             return bone
 
 
-def create_action(arm_obj, anim, fps):
+def create_action(arm_obj, anim, fps, global_matrix):
     act = bpy.data.actions.new(anim.name)
     missing_bones = set()
 
@@ -43,6 +43,8 @@ def create_action(arm_obj, anim, fps):
             loc_mat = bone.matrix_local.copy()
             if bone.parent:
                 loc_mat = bone.parent.matrix_local.inverted_safe() @ loc_mat
+            else:
+                loc_mat = global_matrix @ loc_mat
         else:
             g = act.groups.new(name='%s %d' % (b.name, b.bone_id))
             bone_name = b.name
@@ -77,7 +79,7 @@ def create_action(arm_obj, anim, fps):
     return act, missing_bones
 
 
-def load(context, filepath, *, fps):
+def load(context, filepath, *, fps, global_matrix):
     arm_obj = context.view_layer.objects.active
     if not arm_obj or type(arm_obj.data) != bpy.types.Armature:
         context.window_manager.popup_menu(invalid_active_object, title='Error', icon='ERROR')
@@ -96,7 +98,7 @@ def load(context, filepath, *, fps):
 
     missing_bones = set()
     for anim in ifp.data.animations:
-        act, mb = create_action(arm_obj, anim, fps)
+        act, mb = create_action(arm_obj, anim, fps, global_matrix)
         act.name = anim.name
         animation_data.action = act
         missing_bones = missing_bones.union(mb)

@@ -52,7 +52,7 @@ def get_pose_data(arm_obj, act):
     return pose_data
 
 
-def create_ifp_animations(arm_obj, ifp_cls, actions, fps, use_bone_id):
+def create_ifp_animations(arm_obj, ifp_cls, actions, fps, use_bone_id, global_matrix):
     anim_cls = ifp_cls.get_animation_class()
     bone_cls = anim_cls.get_bone_class()
     animations = []
@@ -67,6 +67,8 @@ def create_ifp_animations(arm_obj, ifp_cls, actions, fps, use_bone_id):
                 loc_mat = bone.matrix_local.copy()
                 if bone.parent:
                     loc_mat = bone.parent.matrix_local.inverted_safe() @ loc_mat
+                else:
+                    loc_mat = global_matrix @ loc_mat
 
             keyframes = []
             for time, tr in data['kfs'].items():
@@ -86,7 +88,7 @@ def create_ifp_animations(arm_obj, ifp_cls, actions, fps, use_bone_id):
     return animations
 
 
-def save(context, filepath, name, version, fps, use_bone_id):
+def save(context, filepath, name, version, fps, use_bone_id, global_matrix):
     arm_obj = context.view_layer.objects.active
     if not arm_obj or type(arm_obj.data) != bpy.types.Armature:
         context.window_manager.popup_menu(invalid_active_object, title='Error', icon='ERROR')
@@ -96,7 +98,7 @@ def save(context, filepath, name, version, fps, use_bone_id):
     if version == 'ANP3':
         fps, use_bone_id = 1.0, True
 
-    animations = create_ifp_animations(arm_obj, ifp_cls, bpy.data.actions, fps, use_bone_id)
+    animations = create_ifp_animations(arm_obj, ifp_cls, bpy.data.actions, fps, use_bone_id, global_matrix)
     data = ifp_cls(name, animations)
     ifp = Ifp(version, data)
     ifp.save(filepath)
