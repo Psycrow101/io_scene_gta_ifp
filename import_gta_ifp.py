@@ -65,15 +65,29 @@ def create_action(arm_obj, anim, fps, global_matrix):
             for c in cs:
                 c.group = g
 
+        loc_pos = loc_mat.to_translation()
+        loc_rot = loc_mat.to_quaternion()
+        loc_scl = loc_mat.to_scale()
+
+        prev_rot = None
+
         for kf in b.keyframes:
             time = kf.time * fps
 
             if b.keyframe_type[2] == 'T':
-                set_keyframe(cl, time, kf.pos - loc_mat.to_translation())
+                set_keyframe(cl, time, kf.pos - loc_pos)
             if b.keyframe_type[3] == 'S':
-                set_keyframe(cl, time, Vector((1, 1, 1)) + kf.scl - loc_mat.to_scale())
+                set_keyframe(cl, time, Vector((1, 1, 1)) + kf.scl - loc_scl)
 
-            rot = loc_mat.to_quaternion().rotation_difference(kf.rot)
+            rot = loc_rot.rotation_difference(kf.rot)
+
+            if prev_rot:
+                alt_rot = rot.copy()
+                alt_rot.negate()
+                if rot.rotation_difference(prev_rot).angle > alt_rot.rotation_difference(prev_rot).angle:
+                    rot = alt_rot
+            prev_rot = rot
+
             set_keyframe(cr, time, rot)
 
     return act, missing_bones
