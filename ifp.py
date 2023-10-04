@@ -116,7 +116,7 @@ class Anp3Bone(Bone):
         return cls(name, keyframe_type, True, bone_id, 0, 0, keyframes)
 
     def write(self, fd):
-        keyframe_type = 4 if self.keyframe_type == 'KRT0' else 3
+        keyframe_type = 4 if self.keyframe_type[2] == 'T' else 3
 
         write_str(fd, self.name, 24)
         write_uint32(fd, (keyframe_type, len(self.keyframes), self.bone_id))
