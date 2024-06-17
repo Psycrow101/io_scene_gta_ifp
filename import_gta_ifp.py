@@ -77,7 +77,7 @@ def create_action(arm_obj, anim, fps, global_matrix):
             if b.keyframe_type[2] == 'T':
                 set_keyframe(cl, time, kf.pos - loc_pos)
             if b.keyframe_type[3] == 'S':
-                set_keyframe(cl, time, Vector((1, 1, 1)) + kf.scl - loc_scl)
+                set_keyframe(cs, time, Vector((1, 1, 1)) + kf.scl - loc_scl)
 
             rot = loc_rot.rotation_difference(kf.rot)
 
