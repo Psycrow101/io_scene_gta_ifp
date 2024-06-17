@@ -28,7 +28,7 @@ def create_action(arm_obj, anim, fps, global_matrix):
     missing_bones = set()
 
     for b in anim.bones:
-        bone = find_bone_by_id(arm_obj, b.bone_id)
+        bone = find_bone_by_id(arm_obj, b.bone_id) if b.bone_id != 0 else None
         if not bone:
             bone = arm_obj.data.bones.get(b.name)
 
