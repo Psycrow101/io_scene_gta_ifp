@@ -52,7 +52,7 @@ def get_pose_data(arm_obj, act):
     return pose_data
 
 
-def create_ifp_animations(arm_obj, ifp_cls, actions, fps, use_bone_id, global_matrix):
+def create_ifp_animations(arm_obj, ifp_cls, actions, fps, global_matrix):
     anim_cls = ifp_cls.get_animation_class()
     bone_cls = anim_cls.get_bone_class()
     animations = []
@@ -82,13 +82,13 @@ def create_ifp_animations(arm_obj, ifp_cls, actions, fps, use_bone_id, global_ma
                 kf = Keyframe(time / fps, kf_pos, kf_rot, kf_scl)
                 keyframes.append(kf)
 
-            anim.bones.append(bone_cls(bone_name, ''.join(data['type']), use_bone_id, bone_id, 0, 0, keyframes))
+            anim.bones.append(bone_cls(bone_name, ''.join(data['type']), True, bone_id, 0, 0, keyframes))
 
         animations.append(anim)
     return animations
 
 
-def save(context, filepath, name, version, fps, use_bone_id, global_matrix):
+def save(context, filepath, name, version, fps, global_matrix):
     arm_obj = context.view_layer.objects.active
     if not arm_obj or type(arm_obj.data) != bpy.types.Armature:
         context.window_manager.popup_menu(invalid_active_object, title='Error', icon='ERROR')
@@ -96,9 +96,9 @@ def save(context, filepath, name, version, fps, use_bone_id, global_matrix):
 
     ifp_cls = ANIM_CLASSES[version]
     if version == 'ANP3':
-        fps, use_bone_id = 1.0, True
+        fps = 1.0
 
-    animations = create_ifp_animations(arm_obj, ifp_cls, bpy.data.actions, fps, use_bone_id, global_matrix)
+    animations = create_ifp_animations(arm_obj, ifp_cls, bpy.data.actions, fps, global_matrix)
     data = ifp_cls(name, animations)
     ifp = Ifp(version, data)
     ifp.save(filepath)

@@ -117,12 +117,6 @@ class ExportGtaIfp(bpy.types.Operator, ExportHelper):
         default=30.0,
     )
 
-    use_bone_id: BoolProperty(
-        name="Use BoneID",
-        description="Use BoneID instead of siblings to identify bones (GTA 3/VC)",
-        default=True,
-    )
-
     def execute(self, context):
         from . import export_gta_ifp
 
@@ -130,7 +124,7 @@ class ExportGtaIfp(bpy.types.Operator, ExportHelper):
                                         from_up=self.axis_up,
                                         ).to_4x4()
 
-        return export_gta_ifp.save(context, self.filepath, self.ifp_name, self.ifp_version, self.fps, self.use_bone_id, global_matrix)
+        return export_gta_ifp.save(context, self.filepath, self.ifp_name, self.ifp_version, self.fps, global_matrix)
 
 
 def menu_func_import(self, context):
