@@ -216,26 +216,30 @@ class AnpkBone(Bone):
             sibling_x, sibling_y = read_uint32(fd, 2)
             use_bone_id = False
 
-        keyframe_type = read_str(fd, 4)
-        keyframes_len = read_uint32(fd)
+        if keyframes_num:
+            keyframe_type = read_str(fd, 4)
+            keyframes_len = read_uint32(fd)
 
-        keyframes = []
-        for _ in range(keyframes_num):
-            qx, qy, qz, qw = read_float32(fd, 4)
-            px, py, pz = read_float32(fd, 3) if keyframe_type[2] == 'T' else (0, 0, 0)
-            sx, sy, sz = read_float32(fd, 3) if keyframe_type[3] == 'S' else (1, 1, 1)
-            time = read_float32(fd)
+            keyframes = []
+            for _ in range(keyframes_num):
+                qx, qy, qz, qw = read_float32(fd, 4)
+                px, py, pz = read_float32(fd, 3) if keyframe_type[2] == 'T' else (0, 0, 0)
+                sx, sy, sz = read_float32(fd, 3) if keyframe_type[3] == 'S' else (1, 1, 1)
+                time = read_float32(fd)
 
-            rot = Quaternion((qw, qx, qy, qz))
-            rot.conjugate()
+                rot = Quaternion((qw, qx, qy, qz))
+                rot.conjugate()
 
-            kf = Keyframe(
-                time,
-                Vector((px, py, pz)),
-                rot,
-                Vector((sx, sy, sz)),
-            )
-            keyframes.append(kf)
+                kf = Keyframe(
+                    time,
+                    Vector((px, py, pz)),
+                    rot,
+                    Vector((sx, sy, sz)),
+                )
+                keyframes.append(kf)
+        else:
+            keyframe_type = 'K000'
+            keyframes = []
 
         return cls(name, keyframe_type, use_bone_id, bone_id, sibling_x, sibling_y, keyframes)
 
