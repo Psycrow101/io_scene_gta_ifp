@@ -10,6 +10,11 @@ def read_int16(fd, num=1, en='<'):
     return res if num > 1 else res[0]
 
 
+def read_int32(fd, num=1, en='<'):
+    res = struct.unpack('%s%di' % (en, num), fd.read(4 * num))
+    return res if num > 1 else res[0]
+
+
 def read_uint32(fd, num=1, en='<'):
     res = struct.unpack('%s%dI' % (en, num), fd.read(4 * num))
     return res if num > 1 else res[0]
@@ -41,6 +46,10 @@ def write_val(fd, vals, t, en='<'):
 
 def write_uint16(fd, vals, en='<'):
     write_val(fd, vals, 'h', en)
+
+
+def write_int32(fd, vals, en='<'):
+    write_val(fd, vals, 'i', en)
 
 
 def write_uint32(fd, vals, en='<'):
@@ -213,7 +222,7 @@ class AnpkBone(Bone):
             use_bone_id = True
         else:
             bone_id = 0
-            sibling_x, sibling_y = read_uint32(fd, 2)
+            sibling_x, sibling_y = read_int32(fd, 2)
             use_bone_id = False
 
         if keyframes_num:
@@ -263,7 +272,7 @@ class AnpkBone(Bone):
         if self.use_bone_id:
             write_uint32(fd, self.bone_id)
         else:
-            write_uint32(fd, (self.sibling_x, self.sibling_y))
+            write_int32(fd, (self.sibling_x, self.sibling_y))
 
         write_str(fd, self.keyframe_type, 4)
         write_uint32(fd, keyframes_len)
