@@ -114,7 +114,11 @@ def load(context, filepath, *, fps, global_matrix):
     for anim in ifp.data.animations:
         act, mb = create_action(arm_obj, anim, fps, global_matrix)
         act.name = anim.name
-        animation_data.action = act
+
+        track = animation_data.nla_tracks.new()
+        track.name = anim.name
+        track.strips.new(name=anim.name, start=1, action=act)
+
         missing_bones = missing_bones.union(mb)
 
     if missing_bones:
