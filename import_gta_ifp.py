@@ -117,7 +117,7 @@ def load(context, filepath, *, fps, global_matrix):
 
         track = animation_data.nla_tracks.new()
         track.name = anim.name
-        track.strips.new(name=anim.name, start=1, action=act)
+        track.strips.new(name=anim.name, start=0, action=act)
 
         missing_bones = missing_bones.union(mb)
 
