@@ -15,7 +15,7 @@ from bpy_extras.io_utils import (
 bl_info = {
     "name": "GTA Animation",
     "author": "Psycrow",
-    "version": (0, 0, 3),
+    "version": (0, 0, 4),
     "blender": (2, 81, 0),
     "location": "File > Import-Export",
     "description": "Import / Export GTA Animation (.ifp)",
@@ -37,14 +37,30 @@ class MissingBonesAlert(bpy.types.Operator):
     bl_idname = "message.missing_bones"
     bl_label = "Missing bones"
 
-    message: StringProperty(
-        name="message",
-        description="message",
-        default='',
-    )
+    message: StringProperty(default='')
 
     def execute(self, context):
         self.report({'WARNING'}, 'Missing bones:\n' + self.message)
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self, width=240)
+
+    def draw(self, context):
+        layout = self.layout
+        for text in self.message.split('\n'):
+            if text:
+                layout.label(text=text, icon='BONE_DATA')
+
+
+class MissingBoneIds(bpy.types.Operator):
+    bl_idname = "message.missing_bone_ids"
+    bl_label = "Missing bone ids"
+
+    message: StringProperty(default='')
+
+    def execute(self, context):
+        self.report({'WARNING'}, 'Missing bone ids:\n' + self.message)
         return {'FINISHED'}
 
     def invoke(self, context, event):
@@ -141,6 +157,7 @@ classes = (
     ImportGtaIfp,
     ExportGtaIfp,
     MissingBonesAlert,
+    MissingBoneIds,
 )
 
 

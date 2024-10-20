@@ -46,7 +46,7 @@ def create_action(arm_obj, anim, fps, global_matrix):
             else:
                 loc_mat = global_matrix @ loc_mat
         else:
-            g = act.groups.new(name='%s %d' % (b.name, b.bone_id))
+            g = act.groups.new(name='%s bone_id:%d' % (b.name, b.bone_id))
             bone_name = b.name
             loc_mat = Matrix.Identity(4)
             missing_bones.add(bone_name)
@@ -115,7 +115,7 @@ def load(context, filepath, *, fps, global_matrix):
         act, mb = create_action(arm_obj, anim, fps, global_matrix)
         act.name = anim.name
         animation_data.action = act
-        missing_bones = missing_bones.union(mb)
+        missing_bones.update(mb)
 
     if missing_bones:
         bpy.ops.message.missing_bones('INVOKE_DEFAULT', message='\n'.join(missing_bones))
