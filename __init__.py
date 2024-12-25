@@ -1,6 +1,5 @@
 import bpy
 from bpy.props import (
-    BoolProperty,
     EnumProperty,
     FloatProperty,
     StringProperty,
@@ -8,14 +7,12 @@ from bpy.props import (
 from bpy_extras.io_utils import (
     ImportHelper,
     ExportHelper,
-    orientation_helper,
-    axis_conversion,
 )
 
 bl_info = {
     "name": "GTA Animation",
     "author": "Psycrow",
-    "version": (0, 0, 4),
+    "version": (0, 0, 5),
     "blender": (2, 81, 0),
     "location": "File > Import-Export",
     "description": "Import / Export GTA Animation (.ifp)",
@@ -73,7 +70,6 @@ class MissingBoneIds(bpy.types.Operator):
                 layout.label(text=text, icon='BONE_DATA')
 
 
-@orientation_helper(axis_forward='Y', axis_up='Z')
 class ImportGtaIfp(bpy.types.Operator, ImportHelper):
     bl_idname = "import_scene.gta_ifp"
     bl_label = "Import GTA Animation"
@@ -95,14 +91,9 @@ class ImportGtaIfp(bpy.types.Operator, ImportHelper):
                                             "axis_up",
                                             "filter_glob",
                                             ))
-        keywords["global_matrix"] = axis_conversion(from_forward=self.axis_forward,
-                                                    from_up=self.axis_up,
-                                                    ).to_4x4()
-
         return import_gta_ifp.load(context, **keywords)
 
 
-@orientation_helper(axis_forward='Y', axis_up='Z')
 class ExportGtaIfp(bpy.types.Operator, ExportHelper):
     bl_idname = "export_scene.gta_ifp"
     bl_label = "Export GTA Animation"
@@ -136,11 +127,7 @@ class ExportGtaIfp(bpy.types.Operator, ExportHelper):
     def execute(self, context):
         from . import export_gta_ifp
 
-        global_matrix = axis_conversion(from_forward=self.axis_forward,
-                                        from_up=self.axis_up,
-                                        ).to_4x4()
-
-        return export_gta_ifp.save(context, self.filepath, self.ifp_name, self.ifp_version, self.fps, global_matrix)
+        return export_gta_ifp.save(context, self.filepath, self.ifp_name, self.ifp_version, self.fps)
 
 
 def menu_func_import(self, context):

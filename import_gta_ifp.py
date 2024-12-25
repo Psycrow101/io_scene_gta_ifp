@@ -1,6 +1,6 @@
 import bpy
 
-from mathutils import Matrix, Vector
+from mathutils import Matrix, Quaternion
 from . ifp import Ifp
 
 POSEDATA_PREFIX = 'pose.bones["%s"].'
@@ -23,7 +23,21 @@ def find_bone_by_id(arm_obj, bone_id):
             return bone
 
 
-def create_action(arm_obj, anim, fps, global_matrix):
+def translation_matrix(v):
+    return Matrix.Translation(v)
+
+
+def scale_matrix(v):
+    mat = Matrix.Identity(4)
+    mat[0][0], mat[1][1], mat[2][2] = v[0], v[1], v[2]
+    return mat
+
+
+def local_to_basis_matrix(local_matrix, global_matrix, parent_matrix):
+    return global_matrix.inverted() @ (parent_matrix @ local_matrix)
+
+
+def create_action(arm_obj, anim, fps):
     act = bpy.data.actions.new(anim.name)
     missing_bones = set()
 
@@ -40,15 +54,19 @@ def create_action(arm_obj, anim, fps, global_matrix):
             pose_bone.location = (0, 0, 0)
             pose_bone.rotation_quaternion = (1, 0, 0, 0)
             pose_bone.scale = (1, 1, 1)
-            loc_mat = bone.matrix_local.copy()
+
+            rest_mat = bone.matrix_local
             if bone.parent:
-                loc_mat = bone.parent.matrix_local.inverted_safe() @ loc_mat
+                parent_mat = bone.parent.matrix_local
+                local_rot = (parent_mat.inverted_safe() @ rest_mat).to_quaternion()
             else:
-                loc_mat = global_matrix @ loc_mat
+                parent_mat = Matrix.Identity(4)
+                local_rot = rest_mat.to_quaternion()
+
         else:
             g = act.groups.new(name='%s bone_id:%d' % (b.name, b.bone_id))
             bone_name = b.name
-            loc_mat = Matrix.Identity(4)
+            local_rot = Quaternion()
             missing_bones.add(bone_name)
 
         cr = [act.fcurves.new(data_path=(POSEDATA_PREFIX % bone_name) + 'rotation_quaternion', index=i) for i in range(4)]
@@ -65,21 +83,29 @@ def create_action(arm_obj, anim, fps, global_matrix):
             for c in cs:
                 c.group = g
 
-        loc_pos = loc_mat.to_translation()
-        loc_rot = loc_mat.to_quaternion()
-        loc_scl = loc_mat.to_scale()
-
         prev_rot = None
-
         for kf in b.keyframes:
             time = kf.time * fps
 
             if b.keyframe_type[2] == 'T':
-                set_keyframe(cl, time, kf.pos - loc_pos)
-            if b.keyframe_type[3] == 'S':
-                set_keyframe(cs, time, Vector((1, 1, 1)) + kf.scl - loc_scl)
+                if bone:
+                    mat = translation_matrix(kf.pos)
+                    mat_basis = local_to_basis_matrix(mat, rest_mat, parent_mat)
+                    loc = mat_basis.to_translation()
+                else:
+                    loc = kf.pos
+                set_keyframe(cl, time, loc)
 
-            rot = loc_rot.rotation_difference(kf.rot)
+            if b.keyframe_type[3] == 'S':
+                if bone:
+                    mat = scale_matrix(kf.scl)
+                    mat_basis = local_to_basis_matrix(mat, rest_mat, parent_mat)
+                    scl = mat_basis.to_scale()
+                else:
+                    scl = kf.scl
+                set_keyframe(cs, time, scl)
+
+            rot = local_rot.rotation_difference(kf.rot)
 
             if prev_rot:
                 alt_rot = rot.copy()
@@ -93,7 +119,7 @@ def create_action(arm_obj, anim, fps, global_matrix):
     return act, missing_bones
 
 
-def load(context, filepath, *, fps, global_matrix):
+def load(context, filepath, *, fps):
     arm_obj = context.view_layer.objects.active
     if not arm_obj or type(arm_obj.data) != bpy.types.Armature:
         context.window_manager.popup_menu(invalid_active_object, title='Error', icon='ERROR')
@@ -112,7 +138,7 @@ def load(context, filepath, *, fps, global_matrix):
 
     missing_bones = set()
     for anim in ifp.data.animations:
-        act, mb = create_action(arm_obj, anim, fps, global_matrix)
+        act, mb = create_action(arm_obj, anim, fps)
         act.name = anim.name
         animation_data.action = act
         missing_bones.update(mb)

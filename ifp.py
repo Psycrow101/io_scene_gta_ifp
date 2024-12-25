@@ -3,6 +3,7 @@ import struct
 from dataclasses import dataclass
 from mathutils import Quaternion, Vector
 from os import SEEK_CUR
+from typing import List
 
 
 def read_int16(fd, num=1, en='<'):
@@ -81,19 +82,19 @@ class Bone:
     bone_id: int
     sibling_x: int
     sibling_y: int
-    keyframes: []
+    keyframes: List[Keyframe]
 
 
 @dataclass
 class Animation:
     name: str
-    bones: []
+    bones: List[Bone]
 
 
 @dataclass
 class IfpData:
     name: str
-    animations: []
+    animations: List[Animation]
 
 
 class Anp3Bone(Bone):

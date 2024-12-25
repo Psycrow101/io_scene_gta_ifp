@@ -1,7 +1,8 @@
 import bpy
 
 from dataclasses import dataclass
-from mathutils import Euler, Quaternion, Vector
+from mathutils import Euler, Matrix, Quaternion, Vector
+from typing import Dict, List, Set, Tuple
 from . ifp import Ifp, Keyframe, ANIM_CLASSES
 
 @dataclass
@@ -16,8 +17,8 @@ class Transformation:
 class PoseData:
     bone_id:        int
     bone:           bpy.types.PoseBone
-    transfomations: dict[int, Transformation]
-    type:           list[str]
+    transfomations: Dict[int, Transformation]
+    type:           List[str]
 
 
 def invalid_active_object(self, context):
@@ -28,9 +29,23 @@ def is_bone_taged(bone):
     return bone.get('bone_id') is not None
 
 
-def get_pose_data(arm_obj, act) -> tuple[dict[str, PoseData], set[str]]:
+def translation_matrix(v):
+    return Matrix.Translation(v)
+
+
+def scale_matrix(v):
+    mat = Matrix.Identity(4)
+    mat[0][0], mat[1][1], mat[2][2] = v[0], v[1], v[2]
+    return mat
+
+
+def basis_to_local_matrix(basis_matrix, global_matrix, parent_matrix):
+    return parent_matrix.inverted() @ global_matrix @ basis_matrix
+
+
+def get_pose_data(arm_obj, act) -> Tuple[Dict[str, PoseData], Set[str]]:
     taged_bones = [bone for bone in arm_obj.data.bones if is_bone_taged(bone)]
-    pose_data: dict[str, PoseData] = {}
+    pose_data: Dict[str, PoseData] = {}
     missing_bone_ids = set()
     name_tag = 'bone_id:'
 
@@ -85,7 +100,7 @@ def get_pose_data(arm_obj, act) -> tuple[dict[str, PoseData], set[str]]:
     return pose_data, missing_bone_ids
 
 
-def create_ifp_animations(arm_obj, ifp_cls, actions, fps, global_matrix):
+def create_ifp_animations(arm_obj, ifp_cls, actions, fps):
     anim_cls = ifp_cls.get_animation_class()
     bone_cls = anim_cls.get_bone_class()
     animations = []
@@ -98,11 +113,13 @@ def create_ifp_animations(arm_obj, ifp_cls, actions, fps, global_matrix):
         for bone_name, data in pose_data.items():
             bone = data.bone
             if bone:
-                loc_mat = bone.matrix_local.copy()
+                rest_mat = bone.matrix_local
                 if bone.parent:
-                    loc_mat = bone.parent.matrix_local.inverted_safe() @ loc_mat
+                    parent_mat = bone.parent.matrix_local
+                    local_rot = (parent_mat.inverted_safe() @ rest_mat).to_quaternion()
                 else:
-                    loc_mat = global_matrix @ loc_mat
+                    parent_mat = Matrix.Identity(4)
+                    local_rot = rest_mat.to_quaternion()
 
             keyframes = []
             for time, tr in data.transfomations.items():
@@ -114,9 +131,12 @@ def create_ifp_animations(arm_obj, ifp_cls, actions, fps, global_matrix):
                 kf_scl = tr.scale
 
                 if bone:
-                    kf_pos += loc_mat.to_translation()
-                    kf_rot = loc_mat.inverted_safe().to_quaternion().rotation_difference(kf_rot)
-                    kf_scl += loc_mat.to_scale() - Vector((1, 1, 1))
+                    basis_mat = translation_matrix(kf_pos) @ scale_matrix(kf_scl)
+                    local_mat = basis_to_local_matrix(basis_mat, rest_mat, parent_mat)
+
+                    kf_pos = local_mat.to_translation()
+                    kf_rot = local_rot.inverted().rotation_difference(kf_rot)
+                    kf_scl = local_mat.to_scale()
 
                 kf = Keyframe(time / fps, kf_pos, kf_rot, kf_scl)
                 keyframes.append(kf)
@@ -132,7 +152,7 @@ def create_ifp_animations(arm_obj, ifp_cls, actions, fps, global_matrix):
     return animations
 
 
-def save(context, filepath, name, version, fps, global_matrix):
+def save(context, filepath, name, version, fps):
     arm_obj = context.view_layer.objects.active
     if not arm_obj or type(arm_obj.data) != bpy.types.Armature:
         context.window_manager.popup_menu(invalid_active_object, title='Error', icon='ERROR')
@@ -142,7 +162,7 @@ def save(context, filepath, name, version, fps, global_matrix):
     if version == 'ANP3':
         fps = 1.0
 
-    animations = create_ifp_animations(arm_obj, ifp_cls, bpy.data.actions, fps, global_matrix)
+    animations = create_ifp_animations(arm_obj, ifp_cls, bpy.data.actions, fps)
     data = ifp_cls(name, animations)
     ifp = Ifp(version, data)
     ifp.save(filepath)
