@@ -162,7 +162,9 @@ def save(context, filepath, name, version, fps):
     if version == 'ANP3':
         fps = 1.0
 
-    animations = create_ifp_animations(arm_obj, ifp_cls, bpy.data.actions, fps)
+    actions = [act for act in bpy.data.actions if act.ifp.use_export]
+
+    animations = create_ifp_animations(arm_obj, ifp_cls, actions, fps)
     data = ifp_cls(name, animations)
     ifp = Ifp(version, data)
     ifp.save(filepath)

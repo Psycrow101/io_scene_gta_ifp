@@ -1,5 +1,6 @@
 import bpy
 from bpy.props import (
+    BoolProperty,
     EnumProperty,
     FloatProperty,
     StringProperty,
@@ -12,7 +13,7 @@ from bpy_extras.io_utils import (
 bl_info = {
     "name": "GTA Animation",
     "author": "Psycrow",
-    "version": (0, 0, 5),
+    "version": (0, 0, 6),
     "blender": (2, 81, 0),
     "location": "File > Import-Export",
     "description": "Import / Export GTA Animation (.ifp)",
@@ -70,6 +71,14 @@ class MissingBoneIds(bpy.types.Operator):
                 layout.label(text=text, icon='BONE_DATA')
 
 
+class IFP_ActionProps(bpy.types.PropertyGroup):
+
+    use_export: BoolProperty(name="Use Export", default=True)
+
+    def register():
+        bpy.types.Action.ifp = bpy.props.PointerProperty(type=IFP_ActionProps)
+
+
 class ImportGtaIfp(bpy.types.Operator, ImportHelper):
     bl_idname = "import_scene.gta_ifp"
     bl_label = "Import GTA Animation"
@@ -124,6 +133,19 @@ class ExportGtaIfp(bpy.types.Operator, ExportHelper):
         default=30.0,
     )
 
+    def draw(self, context):
+        layout = self.layout
+
+        layout.prop(self, "ifp_version")
+        layout.prop(self, "ifp_name")
+        layout.prop(self, "fps")
+
+        box = layout.box()
+        box.label(text="Actions")
+
+        for act in bpy.data.actions:
+            box.prop(act.ifp, "use_export", text=act.name)
+
     def execute(self, context):
         from . import export_gta_ifp
 
@@ -141,6 +163,7 @@ def menu_func_export(self, context):
 
 
 classes = (
+    IFP_ActionProps,
     ImportGtaIfp,
     ExportGtaIfp,
     MissingBonesAlert,
