@@ -108,8 +108,10 @@ class Anp3Bone(Bone):
     @classmethod
     def read(cls, fd):
         name = read_str(fd, 24)
-        keyframe_type, keyframes_num, bone_id = read_uint32(fd, 3)
+        keyframe_type, keyframes_num = read_uint32(fd, 2)
         keyframe_type = 'KRT0' if keyframe_type == 4 else 'KR00'
+
+        bone_id = read_int32(fd)
 
         keyframes = []
         for _ in range(keyframes_num):
@@ -129,7 +131,8 @@ class Anp3Bone(Bone):
         keyframe_type = 4 if self.keyframe_type[2] == 'T' else 3
 
         write_str(fd, self.name, 24)
-        write_uint32(fd, (keyframe_type, len(self.keyframes), self.bone_id))
+        write_uint32(fd, (keyframe_type, len(self.keyframes)))
+        write_int32(fd, self.bone_id)
 
         for kf in self.keyframes:
             qx = int(kf.rot.x*4096.0)
@@ -218,7 +221,7 @@ class AnpkBone(Bone):
         fd.seek(8, SEEK_CUR) # unk
 
         if anim_len == 44:
-            bone_id = read_uint32(fd)
+            bone_id = read_int32(fd)
             sibling_x, sibling_y = 0, 0
             use_bone_id = True
         else:
@@ -271,7 +274,7 @@ class AnpkBone(Bone):
         write_uint32(fd, (keyframes_num, 0, keyframes_num - 1))
 
         if self.use_bone_id:
-            write_uint32(fd, self.bone_id)
+            write_int32(fd, self.bone_id)
         else:
             write_int32(fd, (self.sibling_x, self.sibling_y))
 
