@@ -141,10 +141,15 @@ class ExportGtaIfp(bpy.types.Operator, ExportHelper):
         layout.prop(self, "fps")
 
         box = layout.box()
-        box.label(text="Actions")
-
-        for act in bpy.data.actions:
-            box.prop(act.ifp, "use_export", text=act.name)
+        box.label(text="Actions to Export:")
+        
+        if bpy.data.actions:
+            for act in bpy.data.actions:
+                row = box.row()
+                row.prop(act.ifp, "use_export", text="")
+                row.prop(act, "name", text="")
+        else:
+            box.label(text="No actions found", icon='INFO')
 
     def execute(self, context):
         from . import export_gta_ifp
