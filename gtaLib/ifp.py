@@ -225,7 +225,7 @@ class AnpkBone(Bone):
             sibling_x, sibling_y = 0, 0
             use_bone_id = True
         else:
-            bone_id = 0
+            bone_id = -1
             sibling_x, sibling_y = read_int32(fd, 2)
             use_bone_id = False
 
