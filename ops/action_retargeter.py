@@ -53,12 +53,17 @@ def retarget_action(act, arm_obj):
 
         bone_data = act_bones.get(bone_name)
         if not bone_data:
-            bone_data = (bone_id, defaultdict(list), defaultdict(list), defaultdict(list))
+            bone_data = (
+                bone_id,
+                defaultdict(lambda: [None, None, None, None]),
+                defaultdict(lambda: [None, None, None]),
+                defaultdict(lambda: [None, None, None])
+            )
 
         chan = bone_data[{'R':1, 'T':2, 'S':3}[movement]]
         for kp in c.keyframe_points:
             k, v = kp.co
-            chan[k].append(v)
+            chan[k][c.array_index] = v
 
         act_bones[bone_name] = bone_data
 
