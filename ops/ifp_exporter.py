@@ -1,5 +1,6 @@
 import bpy
 
+from bpy_extras import anim_utils
 from dataclasses import dataclass
 from mathutils import Euler, Matrix, Quaternion, Vector
 from typing import Dict, List
@@ -28,15 +29,40 @@ def basis_to_local_matrix(basis_matrix, global_matrix, parent_matrix):
     return parent_matrix.inverted() @ global_matrix @ basis_matrix
 
 
+def get_action_channelbag(act, obj=None):
+    obj_active_slot = obj.animation_data.action_slot if obj else None
+
+    slot = act.slots.get('OBifp', obj_active_slot)
+    if not slot:
+        if len(act.slots) == 0:
+            return
+        slot = act.slots[0]
+
+    return anim_utils.action_get_channelbag_for_slot(act, slot)
+
+
 def get_pose_data(arm_obj, act) -> Dict[str, PoseData]:
     pose_data: Dict[str, PoseData] = {}
-    ifp_group = act.groups.get('ifp')
+
+    if bpy.app.version < (4, 4, 0):
+        groups = act.groups
+        fcurves = act.fcurves
+
+    else:
+        channelbag = get_action_channelbag(act, arm_obj)
+        if not channelbag:
+            return pose_data
+
+        groups = channelbag.groups
+        fcurves = channelbag.fcurves
+
+    ifp_group = groups.get('ifp')
 
     taged_bones_map = {}
 
     # Collect active keyframes
     if arm_obj:
-        for curve in act.fcurves:
+        for curve in fcurves:
             if curve.group == ifp_group:
                 continue
 
@@ -88,7 +114,7 @@ def get_pose_data(arm_obj, act) -> Dict[str, PoseData]:
             taged_bones_map[bone_key] = pd
 
     # Merge with IFP stored keyframes
-    for curve in act.fcurves:
+    for curve in fcurves:
         if curve.group != ifp_group:
             continue
 
@@ -151,8 +177,15 @@ def create_ifp_animations(context, ifp_cls, actions, fps):
     for act in actions:
         arm_obj = act.ifp.target_armature
 
+        if bpy.app.version < (4, 4, 0):
+            groups = act.groups
+
+        else:
+            channelbag = get_action_channelbag(act, arm_obj)
+            groups = channelbag.groups if channelbag else []
+
         # If there is no IFP data, use an active armature
-        if not arm_obj and 'ifp' not in act.groups:
+        if not arm_obj and 'ifp' not in groups:
             arm_obj = context.object
             if arm_obj and type(arm_obj.data) != bpy.types.Armature:
                 arm_obj = None

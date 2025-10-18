@@ -187,6 +187,9 @@ class ImportGtaIfp(bpy.types.Operator, ImportHelper):
                     animation_data = arm_obj.animation_data_create()
                 animation_data.action = act
 
+                if bpy.app.version >= (4, 4, 0):
+                    animation_data.action_slot = act.slots[-1]
+
         bpy.ops.message.ifp_import_report('INVOKE_DEFAULT',
                                             missing_bones_message='\n'.join(missing_bones),
                                             created_actions=actions_count)

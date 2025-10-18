@@ -1,3 +1,6 @@
+import bpy
+
+from bpy_extras import anim_utils
 from collections import defaultdict
 from mathutils import Matrix, Quaternion
 
@@ -17,21 +20,39 @@ def local_to_basis_matrix(local_matrix, global_matrix, parent_matrix):
     return global_matrix.inverted() @ (parent_matrix @ local_matrix)
 
 
+def get_ifp_channelbag(act):
+    slot = act.slots.get('OBIFP')
+    if slot:
+        return anim_utils.action_get_channelbag_for_slot(act, slot)
+
+
 def untarget_action(act):
     act.ifp.target_armature = None
 
-    ifp_group = act.groups.get('ifp')
+    if bpy.app.version < (4, 4, 0):
+        groups = act.groups
+        fcurves = act.fcurves
+
+    else:
+        channelbag = get_ifp_channelbag(act)
+        if not channelbag:
+            return
+
+        groups = channelbag.groups
+        fcurves = channelbag.fcurves
+
+    ifp_group = groups.get('ifp')
     if not ifp_group:
         return
 
     # Clear fcurves
-    for c in list(act.fcurves):
+    for c in list(fcurves):
         if c.group != ifp_group:
-            act.fcurves.remove(c)
+            fcurves.remove(c)
 
-    for group in list(act.groups):
+    for group in list(groups):
         if group != ifp_group:
-            act.groups.remove(group)
+            groups.remove(group)
 
 
 def retarget_action(act, arm_obj):
@@ -41,12 +62,24 @@ def retarget_action(act, arm_obj):
 
     missing_bones = set()
 
-    ifp_group = act.groups.get('ifp')
+    if bpy.app.version < (4, 4, 0):
+        groups = act.groups
+        fcurves = act.fcurves
+
+    else:
+        channelbag = get_ifp_channelbag(act)
+        if not channelbag:
+            return missing_bones
+
+        groups = channelbag.groups
+        fcurves = channelbag.fcurves
+
+    ifp_group = groups.get('ifp')
     if not ifp_group:
         return missing_bones
 
     act_bones = {}
-    for c in act.fcurves:
+    for c in fcurves:
         _, bone_name, bone_id, movement = c.data_path.split('//')
         use_bone_id = bone_id != 'None'
         bone_id = int(bone_id) if use_bone_id else None
@@ -80,7 +113,7 @@ def retarget_action(act, arm_obj):
             missing_bones.add(bone_name)
             continue
 
-        group = act.groups.new(name=bone_name)
+        group = groups.new(name=bone_name)
         bone_name = bone.name
         pose_bone = arm_obj.pose.bones[bone_name]
         pose_bone.rotation_mode = 'QUATERNION'
@@ -96,17 +129,17 @@ def retarget_action(act, arm_obj):
             parent_mat = Matrix.Identity(4)
             local_rot = rest_mat.to_quaternion()
 
-        cr = [act.fcurves.new(data_path=(POSEDATA_PREFIX % bone_name) + 'rotation_quaternion', index=i) for i in range(4)]
+        cr = [fcurves.new(data_path=(POSEDATA_PREFIX % bone_name) + 'rotation_quaternion', index=i) for i in range(4)]
         for c in cr:
             c.group = group
 
         if locs:
-            cl = [act.fcurves.new(data_path=(POSEDATA_PREFIX % bone_name) + 'location', index=i) for i in range(3)]
+            cl = [fcurves.new(data_path=(POSEDATA_PREFIX % bone_name) + 'location', index=i) for i in range(3)]
             for c in cl:
                 c.group = group
 
         if scls:
-            cs = [act.fcurves.new(data_path=(POSEDATA_PREFIX % bone_name) + 'scale', index=i) for i in range(3)]
+            cs = [fcurves.new(data_path=(POSEDATA_PREFIX % bone_name) + 'scale', index=i) for i in range(3)]
             for c in cs:
                 c.group = group
 
