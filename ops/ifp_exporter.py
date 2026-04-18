@@ -71,6 +71,8 @@ def get_pose_data(arm_obj, act) -> Dict[str, PoseData]:
 
             bone_name = curve.data_path.split('"')[1]
             bone = arm_obj.data.bones.get(bone_name)
+            if not bone:
+                continue
 
             bone_id = bone.get('bone_id')
             if bone_id is None:
