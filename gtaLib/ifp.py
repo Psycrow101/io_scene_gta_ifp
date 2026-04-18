@@ -62,7 +62,7 @@ def write_float32(fd, vals, en='<'):
 
 
 def write_str(fd, val, max_len):
-    fd.write(val.encode())
+    fd.write(val[:max_len].encode())
     fd.write(b'\x00' * (max_len - len(val)))
 
 
