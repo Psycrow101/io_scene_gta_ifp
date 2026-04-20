@@ -20,7 +20,10 @@ def create_action(anim:Animation, fps:float):
         group = channelbag.groups.new('ifp')
         fcurves = channelbag.fcurves
 
-    group.mute = group.lock = True
+    group.lock = True
+
+    if bpy.app.version >= (3, 3, 0):
+        group.mute = True
 
     for b in anim.bones:
         bone_name = b.name
